@@ -1,0 +1,6 @@
+projectKey=Blood-Bank-Management-System
+serverUrl=http://localhost:9090
+serverVersion=9.7.1.62043
+dashboardUrl=http://localhost:9090/dashboard?id=Blood-Bank-Management-System
+ceTaskId=AYdgV9lIGZf5PaWPlGLV
+ceTaskUrl=http://localhost:9090/api/ce/task?id=AYdgV9lIGZf5PaWPlGLV
