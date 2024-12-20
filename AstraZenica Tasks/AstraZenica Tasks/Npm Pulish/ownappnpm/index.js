@@ -1,0 +1,1 @@
+export { default as TextGanesh } from './src/components/TextGanesh.jsx';

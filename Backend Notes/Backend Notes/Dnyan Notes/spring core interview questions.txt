@@ -1,0 +1,47 @@
+1) What is the Spring framework? Why Java programmers should use the Spring framework? 
+answer=>Spring is a framework that helps Java programmers in development. Spring provides 
+Dependency Injection and IOC container, Spring MVC flow, and several helpful APIs for Java programmers.
+
+
+2) What is the default scope of bean in the Spring framework? (answer)
+answer=>The default scope of a Spring bean is the Singleton scope, and in the web application 
+default scope of a spring bean is the request scope. Singleton bean means the same instance
+of a bean is shared with all other beans, while request scope means a bean is alive only for a request.
+
+
+3) Are Spring singleton beans thread-safe?
+answer=>No, Spring singleton beans are not thread-safe. Singleton doesn't mean bean would be thread-safe.
+
+
+4) What is the Dependency Injection design pattern? (answer)
+answer=>It is a design pattern.it makes the code loosely coupled so its easy to maintain.
+Dependency Injection is one of the design patterns, which allows injecting dependency on Objects instead of object resolving the dependency.
+
+
+5) What is the Inversion of Control concept, how does Spring support IOC? 
+answer=>The simple meaning of inversion of the control means that now the framework,
+ Spring is responsible for creating objects, wiring dependencies, and managing their life-cycle 
+instead of a developer, which was the case before. That's where control is inverted from developer to framework.
+The IOC container gets info from XML file and works accordingly.
+Ioc creates the object and hold them in memory and inject them in another object as required.
+types of ioc container:
+-Beanfactory
+-ApplicationContext
+
+6) What is the difference between ApplicationContext and BeanFactory in the Spring framework?
+answer=>Both BeanFactory and ApplicationContext provide a way to get a bean from the Spring IOC container 
+by calling getBean("bean name"), but there is some difference in their working and features provided by them. 
+One difference between the bean factory and application context is that the former only instantiates bean when you call getBean() method while ApplicationContext instantiates Singleton bean when the container is started,  It doesn't wait for the getBean to be called. 
+
+
+7) Can we use more than one configuration file for our Spring project?
+Yes, you can use as many as you want; all you need is to import them in the main Spring configuration file, which you will load from your program.
+
+8) What types of dependency injection are supported by Spring Framework? When do you use Setter and Constructor Injection, the pros and cons? 
+answer=>There are 2 types of dependency injection supported by Spring, 
+constructor-based injection 
+setter-based injection.
+
+
+
+

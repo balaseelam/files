@@ -1,0 +1,409 @@
+[11:33] Sumit Sarjerao Patil
+
+[02-06 12:54] Sumit Sarjerao Patil
+
+----------------------------------------------------------------
+
+Service Registry-->Eureka,Zookeeper,Consul
+
+ApiGateway-->Zuul,Spring cloud Apigateway, Google Apigee
+
+LOad Balancer-->Ribbon, Spring Cloud Load Balancer
+
+Circuit breaker-->Hystrix, Resillence4j 
+
+        -->RestTemplate,FeignClient,openfeign
+
+ 
+
+Bootstrap-> before all the
+
+ 
+
+end project->
+
+Service Registry-->Eureka
+
+ApiGateway-->Zuul,Spring cloud Apigateway, Google Apigee
+
+LOad Balancer-->Ribbon, Spring Cloud Load Balancer
+
+Circuit breaker-->Hystrix, Resillence4j 
+
+        -->FeignClient
+
+----------------------------------------------------------------
+
+Monolithic ->
+
+waterfall model 
+
+-first time we have decrale req
+
+-if any req added, redeploy whole model have to deploy
+
+ 
+
+Migrating from a monolithic application to microservices also enables you to optimize resources, enhance collaboration and streamline business processes.
+
+ 
+
+Microservices simplify app management, making it easier for you to build, deploy, update, test and scale each service independently.
+
+ 
+
+Characteristics of microservice:
+
+ 
+
+Independent Deployability:Independent deployability refers to the idea of making a modification to a microservice, deploying it, and releasing it to our users without deploying any other microservices.
+
+ 
+
+Granular scaling: You can auto-scale up or down individual services without scaling the entire app, using microservices. Thus, its simplicity improves the quality of a definite functionality.
+
+ 
+
+(horizontal , vertical)
+
+ 
+
+Failure isolation: In a microservices architecture, the failure of a single module will not affect larger apps. Moreover, the design of microservices is such that it can help you cope with failure in diverse services.
+
+ 
+
+Technology Independent:It also follows you can potentially use a mix of different technology as well, sometimes it plays in skillsets
+
+--------------------------
+
+Scaling
+
+It can be defined as a process to expand the existing configuration (servers/computers) to handle a large number of user requests or to manage the amount of load on the server. This process is called scalability.
+
+ 
+
+-Vertical Scaling
+
+ 
+
+No new resource is added, rather the capability of the existing resources is made more efficient. This is called Vertical scaling.
+
+ 
+
+*Advantages of Vertical Scaling
+
+It is easy to implement
+
+Reduced software costs as no new resources are added
+
+Fewer efforts required to maintain this single system
+
+ 
+
+*Disadvantages of Vertical Scaling
+
+Single-point failure
+
+Since when the system (server) fails, the downtime is high because we only have a single server
+
+High risk of hardware failures
+
+ 
+
+
+
+-Horizontal Scaling
+
+ 
+
+It is defined as the process of adding more instances of the same type to the existing pool of resources and not increasing the capacity of existing resources like in vertical scaling
+
+with the help of a Load Balancer
+
+ 
+
+*Advantages of Horizontal Scaling
+
+Fault Tolerance means that there is no single point of failure in this kind of scale because there are 5 servers here instead of 1 powerful server. So if anyone of the servers fails then there will be other servers for backup. Whereas, in Vertical Scaling there is single point failure i.e: if a server fails then the whole service is stopped.
+
+Low Latency: Latency refers to how late or delayed our request is being processed.
+
+Built-in backup
+
+ 
+
+*Disadvantages of Horizontal Scaling
+
+Not easy to implement as there are a number of components in this kind of scale
+
+Cost is high
+
+Networking components like, router, load balancer are required
+
+ 
+
+----------------------------------------------------------------
+
+ 
+
+ 
+
+Api   gateway (jwt implementation)
+
+-dispacher servelet
+
+-autherization done
+
+-if done it ask for eureka for request
+
+ 
+
+
+
+-from 2.5 version zuul is outdated
+
+ 
+
+-It is also microservice, 
+
+-webflux, clous-starter-gateway, euereka-discovery-client dependencies
+
+----------------------------------------------------------------
+
+consule server: (discovery server)
+
+*install the consul server in local 
+
+*run cmd with ur ip address
+
+    consul agent -server -bootstrap-expect=1 -data-dir=consule-data -ui -bind=192.168.43.206
+
+ 
+
+----------------------------------------------------------------
+
+que. discovery client vs eureka client
+
+->
+
+There are multiple implementations of "Discovery Service" (eureka, consul, zookeeper). @EnableDiscoveryClient lives in spring-cloud-commons and picks the implementation on the classpath. 
+
+@EnableEurekaClient lives in spring-cloud-netflix and only works for eureka. If eureka is on your classpath, they are effectively the same.
+
+ 
+
+    if server regi is eureka the @eurekaclient is used
+
+    if different serv regi is used the @discoveryclient is used
+
+ 
+
+*spring application name sholud be in format (application file)
+
+    ex. producer, produce-service
+
+    not- allowed : produce_, producer_service.
+
+----------------------------------------------------------------
+
+que.diff RestTemplate vs FeignClient
+
+ 
+
+@feignClient(servicename)
+
+net
+
+----------------------------------------------------------------
+
+fault tolerance:
+
+    if in application has a fault , what
+
+    how many fault tolerates can get the system down
+
+ 
+
+resiliens: 
+
+    how many fault tolerates can handel
+
+ 
+
+----------------------------------------------------------------
+
+fault tolerance solution :
+
+    partly : timeout
+
+        if the incoming requects are to many and faster, microservice get slow down. in that scenario the threads in web server doesn't end until the timeout
+
+ 
+
+-detect something wrong
+
+-take tempory step to avoid the situation getting worse
+
+-deactivate the problem component so that it doesn't affect downstream components
+
+ 
+
+solution:
+
+-circuit breaker:
+
+    basic function is to interrupt current flow after a fault is detected
+
+it is applied where the one micoservice calls another one
+
+ 
+
+-circuit breaker parameters:
+
+*when does the circuit trip?
+
+    -last n requests to consider for the decision
+
+    -how many of those should fail?
+
+    -timeout duration
+
+*When does the circuit normal?
+
+    -How long after a circuit trip to try again?
+
+ 
+
+-what to do when a circuit breaks?
+
+*throw an error -> not a decent way
+
+*return a fallback "default" responce -> recommened
+
+*save previous responceses (cache) and use that when possible -> definitely recommened
+
+ 
+
+ 
+
+-why circuit breakers?
+
+*failing fast
+
+*fallback funcionality
+
+*automatic recovery
+
+ 
+
+-states
+
+    *close
+
+    *open
+
+    *half open
+
+ 
+
+    *close -> open: failure rate above a threshold
+
+    *open -> half_open: after wait duration
+
+    *half_open -> close: failure rate below a threshold
+
+    *half_open -> open: failure rate above a threshold
+
+ 
+
+que.difference bwt hystrix & resilence4j
+
+que.difference bwt hystrix & try-catch?
+
+que.difference bwt error page & exception?
+
+
+
+----------------------------------------------------------------
+Spring configuration server
+----------------------------------------------------------------
+
+ 
+
+Config-server:
+-store at cloud (git) <- local config
+-externalize the config
+-client - server architecture
+
+ 
+
+How to inpliment
+-in git we  create public reposiory and application file
+-create new Eureka-client microservice
+-application class "@EnableConfigServer"
+-in service - in application file-> spring.cloud.config.server.git.uri:"--paste uri of git repo" & git.clone-on-start: true
+
+ 
+
+dependencies :
+    eurka client, config server, actuator
+
+ 
+
+Also we can use localRepo:
+    ----Config-Server-----
+    -create an reposiory  
+    -init on git using gitbash
+    -add applicion.yml files in the reposiory 
+    -for more profiles we can create application-profileNm.yml
+
+ 
+
+
+Config-Server:
+
+ 
+
+Client server architecture
+
+ 
+
+Rabbit MQ and Earlang installation: 
+1) Install Earlang from software center    //not needed in rabbite-> rabbit+earlang 
+2) RabbitMQ from software center 
+(Both will be in programing files) 
+3)  set earlang home directory to path variables not bin just before as ERLANG_HOME (1 hr) 
+4)  C:\Program Files\RabbitMQ Server\rabbitmq_server-3.10.7\sbin>rabbitmq-plugins enable rabbitmq_management 
+    navigate to that path and run that command
+
+ 
+
+Start the server->
+
+ 
+
+C:\Program Files\RabbitMQ Server\rabbitmq_server-3.11.11\sbin>rabbitmq-server start
+
+ 
+
+For changed data in file after retrunning config-server->
+
+ 
+
+by using postman post request http://localhost:9090/actuator/refresh :post request
+
+ 
+
+--in browser for rabbitmq  
+
+ 
+
+http://localhost:15672/
+
+ 
+
+Username : guest
+
+ 
+
+Password : guest

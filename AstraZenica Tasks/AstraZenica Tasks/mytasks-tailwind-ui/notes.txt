@@ -1,0 +1,1914 @@
+------------------------------------------------------
+
+import { useEffect, useRef, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { MdModeEdit } from "react-icons/md";
+import { setSortOrder1, tableDataState } from './tableDataState';
+import { BsSortAlphaUpAlt } from "react-icons/bs";
+import FilterModal from './FilterModal';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [sortingState, setSortingState] = useState({ column: null, order: 'asc', active: false, clickCount: 0 });
+    const [originalData, setOriginalData] = useState([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [filterValue, setFilterValue] = useState('');
+    const [filterOptions, setFilterOptions] = useState([]);
+    const [activeState, setActiveState] = useState({}); // New state to store active filters
+    const [currCol,setCurrCol] = useState("");
+    
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => {
+                setTableData(data);
+                setOriginalData(data);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+       
+        let newOrder = 'asc';
+        let newActiveState = true;
+        let newClickCount = sortingState.clickCount + 1;
+        let dataToSort = [...tableData]; // Use tableData as default
+        
+        if (sortingState.column === key) {
+            if (newClickCount === 3) {
+                // Reset sorting state and display initial data
+                setSortingState({ column: null, order: 'asc', active: false, clickCount: 0 });
+                setTableData(originalData);
+                return;
+            }
+            newOrder = sortingState.order === 'asc' ? 'desc' : 'asc';
+            newActiveState = !(sortingState.order === 'desc' && sortingState.active);
+        } else {
+            newClickCount = 1; // Reset click count if switching to a new column
+        }
+        
+        // Check if a filter is applied
+        if (filterValue.trim() !== '') {
+            // Filter is applied, sort the filtered data
+            dataToSort = [...tableData].sort((a, b) => {
+                if (!isNaN(a[key]) && !isNaN(b[key])) {
+                    // If both values are numeric, compare as numbers
+                    return newOrder === 'asc' ? a[key] - b[key] : b[key] - a[key];
+                } else {
+                    // If any value is non-numeric, compare as strings
+                    return newOrder === 'asc' ? String(a[key]).localeCompare(String(b[key])) : String(b[key]).localeCompare(String(a[key]));
+                }
+            });
+        } else {
+            // No filter applied, sort the original data
+            dataToSort = [...originalData].sort((a, b) => {
+                if (!isNaN(a[key]) && !isNaN(b[key])) {
+                    // If both values are numeric, compare as numbers
+                    return newOrder === 'asc' ? a[key] - b[key] : b[key] - a[key];
+                } else {
+                    // If any value is non-numeric, compare as strings
+                    return newOrder === 'asc' ? String(a[key]).localeCompare(String(b[key])) : String(b[key]).localeCompare(String(a[key]));
+                }
+            });
+        }
+    
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+        setTableData(dataToSort);
+        setSortingState({ column: key, order: newOrder, active: newActiveState, clickCount: newClickCount });
+    };
+    
+    const handleFilterClick = (key) => {
+        // If the current column is already the active filter column, close the modal
+        if (modalOpen && key === currCol) {
+            setModalOpen(false);
+        } else {
+            // Otherwise, open the modal and set filter options
+            const columnData = originalData.map(row => row[key]);
+            const uniqueData = [...new Set(columnData)];
+            if (uniqueData.length === columnData.length) {
+                // Data is unique, open modal with input text
+                setFilterOptions([]);
+                setFilterValue('');
+            } else {
+                // Data has duplicates, open modal with select options
+                setFilterOptions(uniqueData);
+                setFilterValue(uniqueData[0]); // Set default value
+            }
+            setCurrCol(key);
+            setModalOpen(true);
+        }
+    };
+    
+
+    useEffect(()=>{
+        for(let key of Object.keys(activeState)){
+            console.log(key,activeState[key]);
+            filterLogic(key,activeState[key]);
+        }
+    },[activeState]);
+
+    const filterLogic = (colName,filterInputs)=>{
+       
+        let filteredData = [...originalData].filter(row => {
+            let value = row[colName];
+            return value.toLowerCase().startsWith(filterInputs.toLowerCase());
+            // if (!filterInputs.trim()) return true;
+            // const isCaseSensitive = filterOptions.length !== originalData.length; // Check if data is repeated
+            // return Object.values(row).some(value => {
+            //     // Check if the value contains the filter value
+            //     const filterValueString = filterValue.toLowerCase();
+            //     if (isCaseSensitive || filterValue.trim() === '') {
+            //         // Case sensitive comparison
+            //         if(filterOptions.length > 0){
+            //             return String(value).includes(filterValue);
+            //         }
+            //         else {
+            //             // Case insensitive comparison
+            //             return String(value).toString().toLowerCase().includes(filterValueString.toString());
+            //         } 
+            //     } 
+            // });
+        });
+        if (filteredData.length === 0) {
+            // No match found
+            setTableData(["NO MATCH"]);
+            setTimeout(()=>setTableData(originalData),400);
+        } else {
+            setTableData(filteredData);
+        }
+    }
+    
+    const handleApplyFilter = () => {
+        setActiveState((prev)=>{ return{...prev, [currCol]: filterValue }}); // Store active filter
+        setModalOpen(false);
+    };
+    
+    const handleClearFilter = () => {
+    
+        const actvFiltr = Object.keys(activeState).filter(objKey =>
+            objKey !== currCol).reduce((newObj, key) =>
+            {
+                newObj[key] = activeState[key];
+                return newObj;
+            }, {}
+            );
+
+        setActiveState(actvFiltr); // Clear active filter for current column
+        setFilterValue('');
+        // setTableData(originalData);
+        setModalOpen(false);
+    };
+
+    return (
+        <div className="m-1 relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-2 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0 z-50">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-sans">{key}</span>
+                                    <div className="flex items-center relative">
+                                        <button
+                                            className="ml-2 bg-transparent border-none outline-none cursor-pointer"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortingState.column === key && sortingState.active ? (
+                                                sortingState.order === 'asc' ? (
+                                                    <BsSortAlphaUpAlt className="text-red-500 w-5 h-5" />
+                                                ) : (
+                                                    <BsSortAlphaUpAlt
+                                                        className="text-red-500 w-5 h-5 transform rotate-180"
+                                                    />
+                                                )
+                                            ) : (
+                                                <BiSortAlt2 className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                        <FiFilter
+                                            className={`ml-2 w-5 h-5 ${activeState[key] ? 'text-green-500' : 'text-gray-600'}`}
+                                            onClick={() => handleFilterClick(key)}
+                                        />
+                                         {/* Filter Modal */}
+                                         {(modalOpen && key === currCol) && 
+                                            <FilterModal
+                            
+                                                filterOptions={filterOptions}
+                                                filterValue={filterValue}
+                                                setFilterValue={setFilterValue}
+                                                handleClearFilter={handleClearFilter}
+                                                handleApplyFilter={handleApplyFilter}
+                                                columnName={key}
+                                            />
+                                         }
+                                    </div>
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                {/* Table body */}
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr
+                            key={rowIndex}
+                            className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}
+                        >
+                            {Object.entries(row).map(([colKey, value], colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value === "Edit" ? (
+                                        <MdModeEdit className="text-blue-200 w-5 h-5" />
+                                    ) : (
+                                        value
+                                    )}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>                            
+        </div>
+    );
+}
+export default FilterSort;
+
+
+
+------------------------
+import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { MdModeEdit } from "react-icons/md";
+import { setSortOrder1, tableDataState } from './tableDataState';
+import { BsSortAlphaUpAlt } from "react-icons/bs";
+
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [sortingState, setSortingState] = useState({ column: null, order: 'asc', active: false, clickCount: 0 });
+    const [originalData, setOriginalData] = useState([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [filterValue, setFilterValue] = useState('');
+    const [filterOptions, setFilterOptions] = useState([]);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => {
+                setTableData(data);
+                setOriginalData(data);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        let newOrder = 'asc';
+        let newActiveState = true;
+        let newClickCount = sortingState.clickCount + 1;
+        let dataToSort = [...tableData]; // Use tableData as default
+        
+        if (sortingState.column === key) {
+            if (newClickCount === 3) {
+                // Reset sorting state and display initial data
+                setSortingState({ column: null, order: 'asc', active: false, clickCount: 0 });
+                setTableData(originalData);
+                return;
+            }
+            newOrder = sortingState.order === 'asc' ? 'desc' : 'asc';
+            newActiveState = !(sortingState.order === 'desc' && sortingState.active);
+        } else {
+            newClickCount = 1; // Reset click count if switching to a new column
+        }
+        
+        // Check if a filter is applied
+        if (filterValue.trim() !== '') {
+            // Filter is applied, sort the filtered data
+            dataToSort = [...tableData].sort((a, b) => {
+                if (a[key] === b[key]) return 0;
+                return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+            });
+        } else {
+            // No filter applied, sort the original data
+            dataToSort = [...originalData].sort((a, b) => {
+                if (a[key] === b[key]) return 0;
+                return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+            });
+        }
+    
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+        setTableData(dataToSort);
+        setSortingState({ column: key, order: newOrder, active: newActiveState, clickCount: newClickCount });
+    };
+    
+    
+
+    const handleFilterClick = (key) => {
+        const columnData = originalData.map(row => row[key]); // Use originalData
+        const uniqueData = [...new Set(columnData)];
+        if (uniqueData.length === columnData.length) {
+            // Data is unique, open modal with input text
+            setFilterOptions([]);
+            setFilterValue('');
+        } else {
+            // Data has duplicates, open modal with select options
+            setFilterOptions(uniqueData);
+            setFilterValue(uniqueData[0]); // Set default value
+        }
+        setModalOpen(true);
+    };
+    
+    const handleApplyFilter = () => {
+        let filteredData = [...originalData].filter(row => {
+            if (!filterValue.trim()) return true;
+            const isCaseSensitive = filterOptions.length !== originalData.length; // Check if data is repeated
+            return Object.values(row).some(value => {
+                // Check if the value contains the filter value
+                const filterValueString = filterValue.toLowerCase();
+                if (isCaseSensitive || filterValue.trim() === '') {
+                    // Case sensitive comparison
+                    console.log("dublicate")
+                    if(filterOptions.length > 0){
+                        return String(value).includes(filterValue);
+                    }
+                    else {
+                        // Case insensitive comparison
+                        console.log("unique")
+                        return String(value).toLowerCase().includes(filterValueString);
+                    } 
+                } 
+            });
+        });
+        if (filteredData.length === 0) {
+            // No match found
+            setTableData(["No Match"])
+            setTimeout(()=>setTableData(originalData),400);
+    
+        } else {
+            setTableData(filteredData);
+        }
+        setModalOpen(false);
+    };
+    
+    
+    
+
+    const handleCancelFilter = () => {
+        // Close the modal without applying the filter
+        setModalOpen(false);
+    };
+
+    return (
+        <div className="m-1 relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-2 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0 z-50">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-sans">{key}</span>
+                                    <div className="flex items-center">
+                                        <button
+                                            className="ml-2 bg-transparent border-none outline-none cursor-pointer"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortingState.column === key && sortingState.active ? (
+                                                sortingState.order === 'asc' ? (
+                                                    <BsSortAlphaUpAlt className="text-red-500 w-5 h-5" />
+                                                ) : (
+                                                    <BsSortAlphaUpAlt
+                                                        className="text-red-500 w-5 h-5 transform rotate-180"
+                                                    />
+                                                )
+                                            ) : (
+                                                <BiSortAlt2 className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                        <FiFilter
+                                            className="ml-2 w-5 h-5 text-gray-600 cursor-pointer"
+                                            onClick={() => handleFilterClick(key)}
+                                        />
+                                    </div>
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                {/* Table body */}
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr
+                            key={rowIndex}
+                            className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}
+                        >
+                            {Object.entries(row).map(([colKey, value], colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value === "Edit" ? (
+                                        <MdModeEdit className="text-blue-200 w-5 h-5" />
+                                    ) : (
+                                        value
+                                    )}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {/* Filter Modal */}
+            {modalOpen && (
+                <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-4 rounded shadow-md">
+                        <h2 className="text-lg font-semibold mb-4">Filter Options</h2>
+                        {filterOptions.length > 0 ? (
+                            <select
+                                className="block w-full px-4 py-2 border border-gray-300 rounded mb-4"
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                            >
+                                {filterOptions.map((option, index) => (
+                                    <option key={index} value={option}>{option}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                className="block w-full px-4 py-2 border border-gray-300 rounded mb-4"
+                                placeholder="Enter filter value..."
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                            />
+                        )}
+                        <div className="flex justify-end">
+                            <button
+                                className="px-4 py-2 mr-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                onClick={handleCancelFilter}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                onClick={handleApplyFilter}
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default FilterSort;
+
+---------------------------------------------
+import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { MdModeEdit } from "react-icons/md";
+import { setSortOrder1, tableDataState } from './tableDataState';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [sortingState, setSortingState] = useState({ column: null, order: 'asc', active: false, clickCount: 0 });
+    const [originalData, setOriginalData] = useState([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [filterValue, setFilterValue] = useState('');
+    const [filterOptions, setFilterOptions] = useState([]);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => {
+                setTableData(data);
+                setOriginalData(data);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        let newOrder = 'asc';
+        let newActiveState = true;
+        let newClickCount = sortingState.clickCount + 1;
+        let dataToSort = [...tableData]; // Use tableData as default
+        
+        if (sortingState.column === key) {
+            if (newClickCount === 3) {
+                // Reset sorting state and display initial data
+                setSortingState({ column: null, order: 'asc', active: false, clickCount: 0 });
+                setTableData(originalData);
+                return;
+            }
+            newOrder = sortingState.order === 'asc' ? 'desc' : 'asc';
+            newActiveState = !(sortingState.order === 'desc' && sortingState.active);
+        } else {
+            newClickCount = 1; // Reset click count if switching to a new column
+        }
+        
+        // Check if a filter is applied
+        if (filterValue.trim() !== '') {
+            // Filter is applied, sort the filtered data
+            dataToSort = [...tableData].sort((a, b) => {
+                if (a[key] === b[key]) return 0;
+                return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+            });
+        } else {
+            // No filter applied, sort the original data
+            dataToSort = [...originalData].sort((a, b) => {
+                if (a[key] === b[key]) return 0;
+                return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+            });
+        }
+    
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+        setTableData(dataToSort);
+        setSortingState({ column: key, order: newOrder, active: newActiveState, clickCount: newClickCount });
+    };
+    
+    
+
+    const handleFilterClick = (key) => {
+        const columnData = tableData.map(row => row[key]);
+        const uniqueData = [...new Set(columnData)];
+        if (uniqueData.length === columnData.length) {
+            // Data is unique, open modal with input text
+            setFilterOptions([]);
+            setFilterValue('');
+        } else {
+            // Data has duplicates, open modal with select options
+            setFilterOptions(uniqueData);
+            setFilterValue(uniqueData[0]); // Set default value
+        }
+        setModalOpen(true);
+    };
+
+    const handleApplyFilter = () => {
+        // Copy the original data to preserve it
+    let filteredData = [...originalData];
+    
+    // Filter the data based on the selected value or input text
+    filteredData = filteredData.filter(row => {
+        // If the filter value is empty, return true for all rows
+        if (!filterValue.trim()) return true;
+        
+        // Implement your filter logic here
+        // For example, check if the value in the current column matches the filter value
+        return Object.values(row).some(value => {
+            // Check if the value contains the filter value (case insensitive)
+            return String(value).toLowerCase().includes(filterValue.toLowerCase());
+        });
+    });
+
+    // Update the table data with the filtered data
+    setTableData(filteredData);
+    
+    // Close the modal
+    setModalOpen(false);
+    };
+
+    const handleCancelFilter = () => {
+        // Close the modal without applying the filter
+        setModalOpen(false);
+    };
+
+    return (
+        <div className="m-1 relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-2 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0 z-50">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-sans">{key}</span>
+                                    <div className="flex items-center">
+                                        <button
+                                            className="ml-2 bg-transparent border-none outline-none cursor-pointer"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortingState.column === key && sortingState.active ? (
+                                                sortingState.order === '' ? (
+                                                    <BiSortAlt2 className="text-red-500 w-5 h-5" />
+                                                ) : (
+                                                    <BiSortAlt2
+                                                        className="text-red-500 w-5 h-5 transform rotate-180"
+                                                    />
+                                                )
+                                            ) : (
+                                                <BiSortAlt2 className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                        <FiFilter
+                                            className="ml-2 w-5 h-5 text-gray-600 cursor-pointer"
+                                            onClick={() => handleFilterClick(key)}
+                                        />
+                                    </div>
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                {/* Table body */}
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr
+                            key={rowIndex}
+                            className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}
+                        >
+                            {Object.entries(row).map(([colKey, value], colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value === "Edit" ? (
+                                        <MdModeEdit className="text-blue-200 w-5 h-5" />
+                                    ) : (
+                                        value
+                                    )}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {/* Filter Modal */}
+            {modalOpen && (
+                <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-4 rounded shadow-md">
+                        <h2 className="text-lg font-semibold mb-4">Filter Options</h2>
+                        {filterOptions.length > 0 ? (
+                            <select
+                                className="block w-full px-4 py-2 border border-gray-300 rounded mb-4"
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                            >
+                                {filterOptions.map((option, index) => (
+                                    <option key={index} value={option}>{option}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                className="block w-full px-4 py-2 border border-gray-300 rounded mb-4"
+                                placeholder="Enter filter value..."
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                            />
+                        )}
+                        <div className="flex justify-end">
+                            <button
+                                className="px-4 py-2 mr-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                onClick={handleCancelFilter}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                onClick={handleApplyFilter}
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default FilterSort;
+
+
+------------------------------------
+with filter 
+
+import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { MdModeEdit } from "react-icons/md";
+import { setSortOrder1, tableDataState } from './tableDataState';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [sortingState, setSortingState] = useState({ column: null, order: 'asc', active: false, clickCount: 0 });
+    const [originalData, setOriginalData] = useState([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [filterValue, setFilterValue] = useState('');
+    const [filterOptions, setFilterOptions] = useState([]);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => {
+                setTableData(data);
+                setOriginalData(data);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        let newOrder = 'asc';
+        let newActiveState = true;
+        let newClickCount = sortingState.clickCount + 1;
+
+        if (sortingState.column === key) {
+            if (newClickCount === 3) {
+                // Reset sorting state and display initial data
+                setSortingState({ column: null, order: 'asc', active: false, clickCount: 0 });
+                setTableData(originalData);
+                return;
+            }
+            newOrder = sortingState.order === 'asc' ? 'desc' : 'asc';
+            newActiveState = !(sortingState.order === 'desc' && sortingState.active);
+        } else {
+            newClickCount = 1; // Reset click count if switching to a new column
+        }
+
+        const sortedData = [...originalData].sort((a, b) => {
+            if (a[key] === b[key]) return 0;
+            return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+        });
+
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+        setTableData(sortedData);
+        setSortingState({ column: key, order: newOrder, active: newActiveState, clickCount: newClickCount });
+    };
+
+    const handleFilterClick = (key) => {
+        const columnData = tableData.map(row => row[key]);
+        const uniqueData = [...new Set(columnData)];
+        if (uniqueData.length === columnData.length) {
+            // Data is unique, open modal with input text
+            setFilterOptions([]);
+            setFilterValue('');
+        } else {
+            // Data has duplicates, open modal with select options
+            setFilterOptions(uniqueData);
+            setFilterValue(uniqueData[0]); // Set default value
+        }
+        setModalOpen(true);
+    };
+
+    const handleApplyFilter = () => {
+        // Copy the original data to preserve it
+    let filteredData = [...originalData];
+    
+    // Filter the data based on the selected value or input text
+    filteredData = filteredData.filter(row => {
+        // If the filter value is empty, return true for all rows
+        if (!filterValue.trim()) return true;
+        
+        // Implement your filter logic here
+        // For example, check if the value in the current column matches the filter value
+        return Object.values(row).some(value => {
+            // Check if the value contains the filter value (case insensitive)
+            return String(value).toLowerCase().includes(filterValue.toLowerCase());
+        });
+    });
+
+    // Update the table data with the filtered data
+    setTableData(filteredData);
+    
+    // Close the modal
+    setModalOpen(false);
+    };
+
+    const handleCancelFilter = () => {
+        // Close the modal without applying the filter
+        setModalOpen(false);
+    };
+
+    return (
+        <div className="m-1 relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-2 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0 z-50">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-sans">{key}</span>
+                                    <div className="flex items-center">
+                                        <button
+                                            className="ml-2 bg-transparent border-none outline-none cursor-pointer"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortingState.column === key && sortingState.active ? (
+                                                sortingState.order === '' ? (
+                                                    <BiSortAlt2 className="text-red-500 w-5 h-5" />
+                                                ) : (
+                                                    <BiSortAlt2
+                                                        className="text-red-500 w-5 h-5 transform rotate-180"
+                                                    />
+                                                )
+                                            ) : (
+                                                <BiSortAlt2 className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                        <FiFilter
+                                            className="ml-2 w-5 h-5 text-gray-600 cursor-pointer"
+                                            onClick={() => handleFilterClick(key)}
+                                        />
+                                    </div>
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                {/* Table body */}
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr
+                            key={rowIndex}
+                            className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}
+                        >
+                            {Object.entries(row).map(([colKey, value], colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value === "Edit" ? (
+                                        <MdModeEdit className="w-5 h-5" />
+                                    ) : (
+                                        value
+                                    )}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {/* Filter Modal */}
+            {modalOpen && (
+                <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-4 rounded shadow-md">
+                        <h2 className="text-lg font-semibold mb-4">Filter Options</h2>
+                        {filterOptions.length > 0 ? (
+                            <select
+                                className="block w-full px-4 py-2 border border-gray-300 rounded mb-4"
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                            >
+                                {filterOptions.map((option, index) => (
+                                    <option key={index} value={option}>{option}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                className="block w-full px-4 py-2 border border-gray-300 rounded mb-4"
+                                placeholder="Enter filter value..."
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                            />
+                        )}
+                        <div className="flex justify-end">
+                            <button
+                                className="px-4 py-2 mr-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                onClick={handleCancelFilter}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                onClick={handleApplyFilter}
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default FilterSort;
+
+--------------------------------------------------------------
+import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { MdModeEdit } from "react-icons/md";
+import { setSortOrder1, tableDataState } from './tableDataState';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [sortingState, setSortingState] = useState({ column: null, order: 'asc', active: false, clickCount: 0 });
+    const [originalData, setOriginalData] = useState([]);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => {
+                setTableData(data);
+                setOriginalData(data);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        let newOrder = 'asc';
+        let newActiveState = true;
+        let newClickCount = sortingState.clickCount + 1;
+
+        if (sortingState.column === key) {
+            if (newClickCount === 3) {
+                // Reset sorting state and display initial data
+                setSortingState({ column: null, order: 'asc', active: false, clickCount: 0 });
+                setTableData(originalData);
+                return;
+            }
+            newOrder = sortingState.order === 'asc' ? 'desc' : 'asc';
+            newActiveState = !(sortingState.order === 'desc' && sortingState.active);
+        } else {
+            newClickCount = 1; // Reset click count if switching to a new column
+        }
+
+        const sortedData = [...originalData].sort((a, b) => {
+            if (a[key] === b[key]) return 0;
+            return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+        });
+
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+        setTableData(sortedData);
+        setSortingState({ column: key, order: newOrder, active: newActiveState, clickCount: newClickCount });
+    };
+
+    return (
+        <div className="m-1 relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-2 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0 z-50">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-sans">{key}</span>
+                                    <div className="flex items-center">
+                                        <button
+                                            className="ml-2 bg-transparent border-none outline-none cursor-pointer"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortingState.column === key && sortingState.active ? (
+                                                sortingState.order === '' ? (
+                                                    <BiSortAlt2 className="text-red-500 w-5 h-5" />
+                                                ) : (
+                                                    <BiSortAlt2
+                                                        className="text-red-500 w-5 h-5 transform rotate-180"
+                                                    />
+                                                )
+                                            ) : (
+                                                <BiSortAlt2 className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                        <FiFilter className="ml-2 w-5 h-5 text-gray-600" />
+                                    </div>
+                             
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr
+                            key={rowIndex}
+                            className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}
+                        >
+                            {Object.entries(row).map(([colKey, value], colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value === "Edit" ? (
+                                        <MdModeEdit className="w-5 h-5" />
+                                    ) : (
+                                        value
+                                    )}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default FilterSort;
+
+---------------------------------
+import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { MdModeEdit } from "react-icons/md";
+import { setSortOrder1, tableDataState } from './tableDataState';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [sortingState, setSortingState] = useState({ column: null, order: 'asc', active: false, clickCount: 0 });
+    const [originalData, setOriginalData] = useState([]);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => {
+                setTableData(data);
+                setOriginalData(data);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        let newOrder = 'asc';
+        let newActiveState = true;
+        let newClickCount = sortingState.clickCount + 1;
+
+        if (sortingState.column === key) {
+            if (newClickCount === 3) {
+                // Reset sorting state and display initial data
+                setSortingState({ column: null, order: 'asc', active: false, clickCount: 0 });
+                setTableData(originalData);
+                return;
+            }
+            newOrder = sortingState.order === 'asc' ? 'desc' : 'asc';
+            newActiveState = !(sortingState.order === 'desc' && sortingState.active);
+        } else {
+            newClickCount = 1; // Reset click count if switching to a new column
+        }
+
+        const sortedData = [...originalData].sort((a, b) => {
+            if (a[key] === b[key]) return 0;
+            return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+        });
+
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+        setTableData(sortedData);
+        setSortingState({ column: key, order: newOrder, active: newActiveState, clickCount: newClickCount });
+    };
+
+    return (
+        <div className="relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-1 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span>{key}</span>
+                                    <div className="flex ">
+                                        <button
+                                            className="ml-2"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortingState.column === key && sortingState.active ? (
+                                                sortingState.order === '' ? <BiSortAlt2 style={{color:"red"}} /> : <BiSortAlt2 style={{ transform: "rotate(180deg)", color:"red" }} />
+                                            ) : (
+                                                <BiSortAlt2 />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <FiFilter className="ml-2" />
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}>
+                            {Object.values(row).map((value, colIndex) => (
+                                value=="Edit" ? <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    <MdModeEdit className=''/>
+                                </td> :
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default FilterSort;
+
+----------------------------------------------------------------
+import { useEffect, useState } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { setSortOrder1, tableDataState } from './tableDataState';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+    const [clickCount, setClickCount] = useState(0);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => setTableData(data))
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        setClickCount(clickCount + 1);
+
+        let newOrder;
+        if (clickCount === 0 || clickCount === 2) {
+            newOrder = 'asc'; // Initial click or third click, set to ascending
+        } else {
+            newOrder = sortOrder[key] === 'asc' ? 'desc' : 'asc'; // Toggle between ascending and descending
+        }
+
+        // Sort the data based on the current column and order
+        const sortedData = [...tableData].sort((a, b) => {
+            if (a[key] === b[key]) return 0;
+            return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+        });
+
+        // Update sorting order for the current column
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+
+        // Update the table data with the sorted data
+        setTableData(sortedData);
+    };
+
+    return (
+        <div className="relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-1 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <span>{key}</span>
+                                    <div className="flex ">
+                                        <button
+                                            className="ml-2"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortOrder[key] === 'desc' ? <BiSortAlt2 /> : <BiSortAlt2 style={{ transform: "rotate(180deg)" }} />}
+                                        </button>
+                                    </div>
+                                    <FiFilter className="ml-2" />
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}>
+                            {Object.values(row).map((value, colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default FilterSort;
+
+-----------------------------------------
+updated sorting
+
+import { useEffect } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { setSortOrder1, tableDataState } from './tableDataState';
+
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useRecoilState(setSortOrder1);
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => setTableData(data))
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        const currentOrder = sortOrder[key] || 'asc'; // Default to ascending if no order is set
+        const newOrder = currentOrder === 'asc' ? 'desc' : 'asc'; // Toggle between ascending and descending
+
+        // Sort the data based on the current column and order
+        const sortedData = [...tableData].sort((a, b) => {
+            if (a[key] === b[key]) return 0;
+            return newOrder === 'asc' ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+        });
+
+        // Update sorting order for the current column
+        setSortOrder({ ...sortOrder, [key]: newOrder });
+
+        // Update the table data with the sorted data
+        setTableData(sortedData);
+    };
+
+    return (
+        <div className="relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-1 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        {key}
+                                        <button
+                                            className="ml-2"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortOrder[key] === 'asc' ? <BiSortAlt2 /> : <BiSortAlt2 style={{ transform: "rotate(180deg)" }} />}
+                                        </button>
+                                    </div>
+                                    <FiFilter className="ml-2" />
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}>
+                            {Object.values(row).map((value, colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default FilterSort;
+
+------------
+with all way sorting
+
+import React, { useState, useEffect } from 'react';
+import { useRecoilState } from 'recoil';
+import { BiSortAlt2 } from "react-icons/bi";
+import { FiFilter } from "react-icons/fi";
+import { tableDataState } from './tableDataState';
+
+function FilterSort() {
+    const [tableData, setTableData] = useRecoilState(tableDataState);
+    const [sortOrder, setSortOrder] = useState({ key: null, asc: true });
+
+    useEffect(() => {
+        fetch('http://localhost:8282/data')
+            .then(response => response.json())
+            .then(data => setTableData(data))
+            .catch(error => console.error('Error fetching data:', error));
+    }, [setTableData]);
+
+    const handleSort = (key) => {
+        const asc = sortOrder.key === key ? !sortOrder.asc : true;
+        const sortedData = [...tableData].sort((a, b) => {
+            if (a[key] === b[key]) return 0;
+            return asc ? (a[key] > b[key] ? 1 : -1) : (a[key] < b[key] ? 1 : -1);
+        });
+        setTableData(sortedData);
+        setSortOrder({ key, asc });
+    };
+
+    return (
+        <div className="relative overflow-auto h-[600px] w-[100%] shadow-md sm:rounded-lg border-1 border-black">
+            <table className="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        {tableData.length > 0 && Object.keys(tableData[0]).map((key, index) => (
+                            <th key={index} className="px-6 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        {key}
+                                        <button
+                                            className="ml-2"
+                                            onClick={() => handleSort(key)}
+                                        >
+                                            {sortOrder.key === key && sortOrder.asc ? <BiSortAlt2 /> : <BiSortAlt2 style={{ transform: "rotate(180deg)" }} />}
+                                        </button>
+                                    </div>
+                                    <FiFilter className="ml-2" />
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {tableData.map((row, rowIndex) => (
+                        <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'even:bg-gray-50 even:dark:bg-gray-800' : 'odd:bg-white odd:dark:bg-gray-900'} border-b dark:border-gray-700`}>
+                            {Object.values(row).map((value, colIndex) => (
+                                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
+                                    {value}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default FilterSort;
+-------------------------------------------
+{
+    "data":[
+        {"id": 1, "Action": "Edit", "Status": "Published", "Product": "Product1", "Speciality": "Speciality1", "Blocked/Unblocked": "Unblocked", "Records Processed": 8, "Rule": "IBIB123", "File Name": "File_16-04-2022.xlsx", "Published Date": "16/04/2023", "Created Date": "16/04/2023"},
+        {"id": 2, "Action": "Edit", "Status": "Unpublished", "Product": "Product2", "Speciality": "Speciality2", "Blocked/Unblocked": "Blocked", "Records Processed": 9, "Rule": "IBIB456", "File Name": "File_17-04-2022.xlsx", "Published Date": "17/04/2023", "Created Date": "17/04/2023"},
+        {"id": 3, "Action": "Edit", "Status": "Published", "Product": "Product3", "Speciality": "Speciality3", "Blocked/Unblocked": "Unblocked", "Records Processed": 10, "Rule": "IBIB789", "File Name": "File_18-04-2022.xlsx", "Published Date": "18/04/2023", "Created Date": "18/04/2023"},
+        {"id": 4, "Action": "Edit", "Status": "Unpublished", "Product": "Product4", "Speciality": "Speciality4", "Blocked/Unblocked": "Blocked", "Records Processed": 11, "Rule": "IBIB101112", "File Name": "File_19-04-2022.xlsx", "Published Date": "19/04/2023", "Created Date": "19/04/2023"},
+        {"id": 5, "Action": "Edit", "Status": "Published", "Product": "Product5", "Speciality": "Speciality5", "Blocked/Unblocked": "Unblocked", "Records Processed": 12, "Rule": "IBIB131415", "File Name": "File_20-04-2022.xlsx", "Published Date": "20/04/2023", "Created Date": "20/04/2023"},
+        {"id": 6, "Action": "Edit", "Status": "Unpublished", "Product": "Product6", "Speciality": "Speciality6", "Blocked/Unblocked": "Blocked", "Records Processed": 13, "Rule": "IBIB161718", "File Name": "File_21-04-2022.xlsx", "Published Date": "21/04/2023", "Created Date": "21/04/2023"},
+        {"id": 7, "Action": "Edit", "Status": "Published", "Product": "Product7", "Speciality": "Speciality7", "Blocked/Unblocked": "Unblocked", "Records Processed": 14, "Rule": "IBIB192021", "File Name": "File_22-04-2022.xlsx", "Published Date": "22/04/2023", "Created Date": "22/04/2023"},
+        {"id": 8, "Action": "Edit", "Status": "Unpublished", "Product": "Product8", "Speciality": "Speciality8", "Blocked/Unblocked": "Blocked", "Records Processed": 15, "Rule": "IBIB222324", "File Name": "File_23-04-2022.xlsx", "Published Date": "23/04/2023", "Created Date": "23/04/2023"},
+        {"id": 9, "Action": "Edit", "Status": "Published", "Product": "Product9", "Speciality": "Speciality9", "Blocked/Unblocked": "Unblocked", "Records Processed": 16, "Rule": "IBIB252627", "File Name": "File_24-04-2022.xlsx", "Published Date": "24/04/2023", "Created Date": "24/04/2023"},
+        {"id": 10, "Action": "Edit", "Status": "Unpublished", "Product": "Product10", "Speciality": "Speciality10", "Blocked/Unblocked": "Blocked", "Records Processed": 17, "Rule": "IBIB282930", "File Name": "File_25-04-2022.xlsx", "Published Date": "25/04/2023", "Created Date": "25/04/2023"},
+        {"id": 11, "Action": "Edit", "Status": "Published", "Product": "Product11", "Speciality": "Speciality11", "Blocked/Unblocked": "Unblocked", "Records Processed": 18, "Rule": "IBIB313233", "File Name": "File_26-04-2022.xlsx", "Published Date": "26/04/2023", "Created Date": "26/04/2023"},
+        {"id": 12, "Action": "Edit", "Status": "Unpublished", "Product": "Product12", "Speciality": "Speciality12", "Blocked/Unblocked": "Blocked", "Records Processed": 19, "Rule": "IBIB343536", "File Name": "File_27-04-2022.xlsx", "Published Date": "27/04/2023", "Created Date": "27/04/2023"},
+        {"id": 13, "Action": "Edit", "Status": "Published", "Product": "Product13", "Speciality": "Speciality13", "Blocked/Unblocked": "Unblocked", "Records Processed": 20, "Rule": "IBIB373839", "File Name": "File_28-04-2022.xlsx", "Published Date": "28/04/2023", "Created Date": "28/04/2023"},
+        {"id": 14, "Action": "Edit", "Status": "Unpublished", "Product": "Product14", "Speciality": "Speciality14", "Blocked/Unblocked": "Blocked", "Records Processed": 21, "Rule": "IBIB404142", "File Name": "File_29-04-2022.xlsx", "Published Date": "29/04/2023", "Created Date": "29/04/2023"},
+        {"id": 15, "Action": "Edit", "Status": "Published", "Product": "Product15", "Speciality": "Speciality15", "Blocked/Unblocked": "Unblocked", "Records Processed": 22, "Rule": "IBIB434445", "File Name": "File_30-04-2022.xlsx", "Published Date": "30/04/2023", "Created Date": "30/04/2023"},
+        {"id": 16, "Action": "Edit", "Status": "Unpublished", "Product": "Product16", "Speciality": "Speciality16", "Blocked/Unblocked": "Blocked", "Records Processed": 23, "Rule": "IBIB464748", "File Name": "File_01-05-2022.xlsx", "Published Date": "01/05/2023", "Created Date": "01/05/2023"},
+        {"id": 17, "Action": "Edit", "Status": "Published", "Product": "Product17", "Speciality": "Speciality17", "Blocked/Unblocked": "Unblocked", "Records Processed": 24, "Rule": "IBIB495051", "File Name": "File_02-05-2022.xlsx", "Published Date": "02/05/2023", "Created Date": "02/05/2023"},
+        {"id": 18, "Action": "Edit", "Status": "Unpublished", "Product": "Product18", "Speciality": "Speciality18", "Blocked/Unblocked": "Blocked", "Records Processed": 25, "Rule": "IBIB525354", "File Name": "File_03-05-2022.xlsx", "Published Date": "03/05/2023", "Created Date": "03/05/2023"},
+        {"id": 19, "Action": "Edit", "Status": "Published", "Product": "Product19", "Speciality": "Speciality19", "Blocked/Unblocked": "Unblocked", "Records Processed": 26, "Rule": "IBIB555657", "File Name": "File_04-05-2022.xlsx", "Published Date": "04/05/2023", "Created Date": "04/05/2023"},
+        {"id": 20, "Action": "Edit", "Status": "Unpublished", "Product": "Product20", "Speciality": "Speciality20", "Blocked/Unblocked": "Blocked", "Records Processed": 27, "Rule": "IBIB585960", "File Name": "File_05-05-2022.xlsx", "Published Date": "05/05/2023", "Created Date": "05/05/2023"},
+        {"id": 21, "Action": "Edit", "Status": "Published", "Product": "Product21", "Speciality": "Speciality21", "Blocked/Unblocked": "Unblocked", "Records Processed": 28, "Rule": "IBIB616263", "File Name": "File_06-05-2022.xlsx", "Published Date": "06/05/2023", "Created Date": "06/05/2023"},
+        {"id": 22, "Action": "Edit", "Status": "Unpublished", "Product": "Product22", "Speciality": "Speciality22", "Blocked/Unblocked": "Blocked", "Records Processed": 29, "Rule": "IBIB646566", "File Name": "File_07-05-2022.xlsx", "Published Date": "07/05/2023", "Created Date": "07/05/2023"},
+        {"id": 23, "Action": "Edit", "Status": "Published", "Product": "Product23", "Speciality": "Speciality23", "Blocked/Unblocked": "Unblocked", "Records Processed": 30, "Rule": "IBIB676869", "File Name": "File_08-05-2022.xlsx", "Published Date": "08/05/2023", "Created Date": "08/05/2023"},
+        {"id": 24, "Action": "Edit", "Status": "Unpublished", "Product": "Product24", "Speciality": "Speciality24", "Blocked/Unblocked": "Blocked", "Records Processed": 31, "Rule": "IBIB707172", "File Name": "File_09-05-2022.xlsx", "Published Date": "09/05/2023", "Created Date": "09/05/2023"},
+        {"id": 25, "Action": "Edit", "Status": "Published", "Product": "Product25", "Speciality": "Speciality25", "Blocked/Unblocked": "Unblocked", "Records Processed": 32, "Rule": "IBIB737475", "File Name": "File_10-05-2022.xlsx", "Published Date": "10/05/2023", "Created Date": "10/05/2023"},
+        {"id": 26, "Action": "Edit", "Status": "Unpublished", "Product": "Product26", "Speciality": "Speciality26", "Blocked/Unblocked": "Blocked", "Records Processed": 33, "Rule": "IBIB767778", "File Name": "File_11-05-2022.xlsx", "Published Date": "11/05/2023", "Created Date": "11/05/2023"},
+        {"id": 27, "Action": "Edit", "Status": "Published", "Product": "Product27", "Speciality": "Speciality27", "Blocked/Unblocked": "Unblocked", "Records Processed": 34, "Rule": "IBIB798081", "File Name": "File_12-05-2022.xlsx", "Published Date": "12/05/2023", "Created Date": "12/05/2023"},
+        {"id": 28, "Action": "Edit", "Status": "Unpublished", "Product": "Product28", "Speciality": "Speciality28", "Blocked/Unblocked": "Blocked", "Records Processed": 35, "Rule": "IBIB828384", "File Name": "File_13-05-2022.xlsx", "Published Date": "13/05/2023", "Created Date": "13/05/2023"},
+        {"id": 29, "Action": "Edit", "Status": "Published", "Product": "Product29", "Speciality": "Speciality29", "Blocked/Unblocked": "Unblocked", "Records Processed": 36, "Rule": "IBIB858687", "File Name": "File_14-05-2022.xlsx", "Published Date": "14/05/2023", "Created Date": "14/05/2023"},
+        {"id": 30, "Action": "Edit", "Status": "Unpublished", "Product": "Product30", "Speciality": "Speciality30", "Blocked/Unblocked": "Blocked", "Records Processed": 37, "Rule": "IBIB888990", "File Name": "File_15-05-2022.xlsx", "Published Date": "15/05/2023", "Created Date": "15/05/2023"},
+        {"id": 31, "Action": "Edit", "Status": "Published", "Product": "Product31", "Speciality": "Speciality31", "Blocked/Unblocked": "Unblocked", "Records Processed": 38, "Rule": "IBIB919293", "File Name": "File_16-05-2022.xlsx", "Published Date": "16/05/2023", "Created Date": "16/05/2023"},
+        {"id": 32, "Action": "Edit", "Status": "Unpublished", "Product": "Product32", "Speciality": "Speciality32", "Blocked/Unblocked": "Blocked", "Records Processed": 39, "Rule": "IBIB949596", "File Name": "File_17-05-2022.xlsx", "Published Date": "17/05/2023", "Created Date": "17/05/2023"},
+        {"id": 33, "Action": "Edit", "Status": "Published", "Product": "Product33", "Speciality": "Speciality33", "Blocked/Unblocked": "Unblocked", "Records Processed": 40, "Rule": "IBIB979899", "File Name": "File_18-05-2022.xlsx", "Published Date": "18/05/2023", "Created Date": "18/05/2023"},
+        {"id": 34, "Action": "Edit", "Status": "Unpublished", "Product": "Product34", "Speciality": "Speciality34", "Blocked/Unblocked": "Blocked", "Records Processed": 41, "Rule": "IBIB100101102", "File Name": "File_19-05-2022.xlsx", "Published Date": "19/05/2023", "Created Date": "19/05/2023"},
+        {"id": 35, "Action": "Edit", "Status": "Published", "Product": "Product35", "Speciality": "Speciality35", "Blocked/Unblocked": "Unblocked", "Records Processed": 42, "Rule": "IBIB103104105", "File Name": "File_20-05-2022.xlsx", "Published Date": "20/05/2023", "Created Date": "20/05/2023"},
+        {"id": 36, "Action": "Edit", "Status": "Unpublished", "Product": "Product36", "Speciality": "Speciality36", "Blocked/Unblocked": "Blocked", "Records Processed": 43, "Rule": "IBIB106107108", "File Name": "File_21-05-2022.xlsx", "Published Date": "21/05/2023", "Created Date": "21/05/2023"},
+        {"id": 37, "Action": "Edit", "Status": "Published", "Product": "Product37", "Speciality": "Speciality37", "Blocked/Unblocked": "Unblocked", "Records Processed": 44, "Rule": "IBIB109110111", "File Name": "File_22-05-2022.xlsx", "Published Date": "22/05/2023", "Created Date": "22/05/2023"},
+        {"id": 38, "Action": "Edit", "Status": "Unpublished", "Product": "Product38", "Speciality": "Speciality38", "Blocked/Unblocked": "Blocked", "Records Processed": 45, "Rule": "IBIB112113114", "File Name": "File_23-05-2022.xlsx", "Published Date": "23/05/2023", "Created Date": "23/05/2023"},
+        {"id": 39, "Action": "Edit", "Status": "Published", "Product": "Product39", "Speciality": "Speciality39", "Blocked/Unblocked": "Unblocked", "Records Processed": 46, "Rule": "IBIB115116117", "File Name": "File_24-05-2022.xlsx", "Published Date": "24/05/2023", "Created Date": "24/05/2023"},
+        {"id": 40, "Action": "Edit", "Status": "Unpublished", "Product": "Product40", "Speciality": "Speciality40", "Blocked/Unblocked": "Blocked", "Records Processed": 47, "Rule": "IBIB118119120", "File Name": "File_25-05-2022.xlsx", "Published Date": "25/05/2023", "Created Date": "25/05/2023"},
+        {"id": 41, "Action": "Edit", "Status": "Published", "Product": "Product41", "Speciality": "Speciality41", "Blocked/Unblocked": "Unblocked", "Records Processed": 48, "Rule": "IBIB121122123", "File Name": "File_26-05-2022.xlsx", "Published Date": "26/05/2023", "Created Date": "26/05/2023"},
+        {"id": 42, "Action": "Edit", "Status": "Unpublished", "Product": "Product42", "Speciality": "Speciality42", "Blocked/Unblocked": "Blocked", "Records Processed": 49, "Rule": "IBIB124125126", "File Name": "File_27-05-2022.xlsx", "Published Date": "27/05/2023", "Created Date": "27/05/2023"},
+        {"id": 43, "Action": "Edit", "Status": "Published", "Product": "Product43", "Speciality": "Speciality43", "Blocked/Unblocked": "Unblocked", "Records Processed": 50, "Rule": "IBIB127128129", "File Name": "File_28-05-2022.xlsx", "Published Date": "28/05/2023", "Created Date": "28/05/2023"},
+        {"id": 44, "Action": "Edit", "Status": "Unpublished", "Product": "Product44", "Speciality": "Speciality44", "Blocked/Unblocked": "Blocked", "Records Processed": 51, "Rule": "IBIB130131132", "File Name": "File_29-05-2022.xlsx", "Published Date": "29/05/2023", "Created Date": "29/05/2023"},
+        {"id": 45, "Action": "Edit", "Status": "Published", "Product": "Product45", "Speciality": "Speciality45", "Blocked/Unblocked": "Unblocked", "Records Processed": 52, "Rule": "IBIB133134135", "File Name": "File_30-05-2022.xlsx", "Published Date": "30/05/2023", "Created Date": "30/05/2023"},
+        {"id": 46, "Action": "Edit", "Status": "Unpublished", "Product": "Product46", "Speciality": "Speciality46", "Blocked/Unblocked": "Blocked", "Records Processed": 53, "Rule": "IBIB136137138", "File Name": "File_31-05-2022.xlsx", "Published Date": "31/05/2023", "Created Date": "31/05/2023"},
+        {"id": 47, "Action": "Edit", "Status": "Published", "Product": "Product47", "Speciality": "Speciality47", "Blocked/Unblocked": "Unblocked", "Records Processed": 54, "Rule": "IBIB139140141", "File Name": "File_01-06-2022.xlsx", "Published Date": "01/06/2023", "Created Date": "01/06/2023"},
+        {"id": 48, "Action": "Edit", "Status": "Unpublished", "Product": "Product48", "Speciality": "Speciality48", "Blocked/Unblocked": "Blocked", "Records Processed": 55, "Rule": "IBIB142143144", "File Name": "File_02-06-2022.xlsx", "Published Date": "02/06/2023", "Created Date": "02/06/2023"},
+        {"id": 49, "Action": "Edit", "Status": "Published", "Product": "Product49", "Speciality": "Speciality49", "Blocked/Unblocked": "Unblocked", "Records Processed": 56, "Rule": "IBIB145146147", "File Name": "File_03-06-2022.xlsx", "Published Date": "03/06/2023", "Created Date": "03/06/2023"},
+        {"id": 50, "Action": "Edit", "Status": "Unpublished", "Product": "Product50", "Speciality": "Speciality50", "Blocked/Unblocked": "Blocked", "Records Processed": 57, "Rule": "IBIB148149150", "File Name": "File_04-06-2022.xlsx", "Published Date": "04/06/2023", "Created Date": "04/06/2023"},
+        {"id": 51, "Action": "Edit", "Status": "Published", "Product": "Product51", "Speciality": "Speciality51", "Blocked/Unblocked": "Unblocked", "Records Processed": 58, "Rule": "IBIB151152153", "File Name": "File_05-06-2022.xlsx", "Published Date": "05/06/2023", "Created Date": "05/06/2023"},
+        {"id": 52, "Action": "Edit", "Status": "Unpublished", "Product": "Product52", "Speciality": "Speciality52", "Blocked/Unblocked": "Blocked", "Records Processed": 59, "Rule": "IBIB154155156", "File Name": "File_06-06-2022.xlsx", "Published Date": "06/06/2023", "Created Date": "06/06/2023"},
+        {"id": 53, "Action": "Edit", "Status": "Published", "Product": "Product53", "Speciality": "Speciality53", "Blocked/Unblocked": "Unblocked", "Records Processed": 60, "Rule": "IBIB157158159", "File Name": "File_07-06-2022.xlsx", "Published Date": "07/06/2023", "Created Date": "07/06/2023"},
+        {"id": 54, "Action": "Edit", "Status": "Unpublished", "Product": "Product54", "Speciality": "Speciality54", "Blocked/Unblocked": "Blocked", "Records Processed": 61, "Rule": "IBIB160161162", "File Name": "File_08-06-2022.xlsx", "Published Date": "08/06/2023", "Created Date": "08/06/2023"},
+        {"id": 55, "Action": "Edit", "Status": "Published", "Product": "Product55", "Speciality": "Speciality55", "Blocked/Unblocked": "Unblocked", "Records Processed": 62, "Rule": "IBIB163164165", "File Name": "File_09-06-2022.xlsx", "Published Date": "09/06/2023", "Created Date": "09/06/2023"},
+        {"id": 56, "Action": "Edit", "Status": "Unpublished", "Product": "Product56", "Speciality": "Speciality56", "Blocked/Unblocked": "Blocked", "Records Processed": 63, "Rule": "IBIB166167168", "File Name": "File_10-06-2022.xlsx", "Published Date": "10/06/2023", "Created Date": "10/06/2023"},
+        {"id": 57, "Action": "Edit", "Status": "Published", "Product": "Product57", "Speciality": "Speciality57", "Blocked/Unblocked": "Unblocked", "Records Processed": 64, "Rule": "IBIB169170171", "File Name": "File_11-06-2022.xlsx", "Published Date": "11/06/2023", "Created Date": "11/06/2023"},
+        {"id": 58, "Action": "Edit", "Status": "Unpublished", "Product": "Product58", "Speciality": "Speciality58", "Blocked/Unblocked": "Blocked", "Records Processed": 65, "Rule": "IBIB172173174", "File Name": "File_12-06-2022.xlsx", "Published Date": "12/06/2023", "Created Date": "12/06/2023"},
+        {"id": 59, "Action": "Edit", "Status": "Published", "Product": "Product59", "Speciality": "Speciality59", "Blocked/Unblocked": "Unblocked", "Records Processed": 66, "Rule": "IBIB175176177", "File Name": "File_13-06-2022.xlsx", "Published Date": "13/06/2023", "Created Date": "13/06/2023"},
+        {"id": 60, "Action": "Edit", "Status": "Unpublished", "Product": "Product60", "Speciality": "Speciality60", "Blocked/Unblocked": "Blocked", "Records Processed": 67, "Rule": "IBIB178179180", "File Name": "File_14-06-2022.xlsx", "Published Date": "14/06/2023", "Created Date": "14/06/2023"},
+        {"id": 61, "Action": "Edit", "Status": "Published", "Product": "Product61", "Speciality": "Speciality61", "Blocked/Unblocked": "Unblocked", "Records Processed": 68, "Rule": "IBIB181182183", "File Name": "File_15-06-2022.xlsx", "Published Date": "15/06/2023", "Created Date": "15/06/2023"},
+        {"id": 62, "Action": "Edit", "Status": "Unpublished", "Product": "Product62", "Speciality": "Speciality62", "Blocked/Unblocked": "Blocked", "Records Processed": 69, "Rule": "IBIB184185186", "File Name": "File_16-06-2022.xlsx", "Published Date": "16/06/2023", "Created Date": "16/06/2023"},
+        {"id": 63, "Action": "Edit", "Status": "Published", "Product": "Product63", "Speciality": "Speciality63", "Blocked/Unblocked": "Unblocked", "Records Processed": 70, "Rule": "IBIB187188189", "File Name": "File_17-06-2022.xlsx", "Published Date": "17/06/2023", "Created Date": "17/06/2023"},
+        {"id": 64, "Action": "Edit", "Status": "Unpublished", "Product": "Product64", "Speciality": "Speciality64", "Blocked/Unblocked": "Blocked", "Records Processed": 71, "Rule": "IBIB190191192", "File Name": "File_18-06-2022.xlsx", "Published Date": "18/06/2023", "Created Date": "18/06/2023"},
+        {"id": 65, "Action": "Edit", "Status": "Published", "Product": "Product65", "Speciality": "Speciality65", "Blocked/Unblocked": "Unblocked", "Records Processed": 72, "Rule": "IBIB193194195", "File Name": "File_19-06-2022.xlsx", "Published Date": "19/06/2023", "Created Date": "19/06/2023"},
+        {"id": 66, "Action": "Edit", "Status": "Unpublished", "Product": "Product66", "Speciality": "Speciality66", "Blocked/Unblocked": "Blocked", "Records Processed": 73, "Rule": "IBIB196197198", "File Name": "File_20-06-2022.xlsx", "Published Date": "20/06/2023", "Created Date": "20/06/2023"},
+        {"id": 67, "Action": "Edit", "Status": "Published", "Product": "Product67", "Speciality": "Speciality67", "Blocked/Unblocked": "Unblocked", "Records Processed": 74, "Rule": "IBIB199200201", "File Name": "File_21-06-2022.xlsx", "Published Date": "21/06/2023", "Created Date": "21/06/2023"},
+        {"id": 68, "Action": "Edit", "Status": "Unpublished", "Product": "Product68", "Speciality": "Speciality68", "Blocked/Unblocked": "Blocked", "Records Processed": 75, "Rule": "IBIB202203204", "File Name": "File_22-06-2022.xlsx", "Published Date": "22/06/2023", "Created Date": "22/06/2023"},
+        {"id": 69, "Action": "Edit", "Status": "Published", "Product": "Product69", "Speciality": "Speciality69", "Blocked/Unblocked": "Unblocked", "Records Processed": 76, "Rule": "IBIB205206207", "File Name": "File_23-06-2022.xlsx", "Published Date": "23/06/2023", "Created Date": "23/06/2023"},
+        {"id": 70, "Action": "Edit", "Status": "Unpublished", "Product": "Product70", "Speciality": "Speciality70", "Blocked/Unblocked": "Blocked", "Records Processed": 77, "Rule": "IBIB208209210", "File Name": "File_24-06-2022.xlsx", "Published Date": "24/06/2023", "Created Date": "24/06/2023"},
+        {"id": 71, "Action": "Edit", "Status": "Published", "Product": "Product71", "Speciality": "Speciality71", "Blocked/Unblocked": "Unblocked", "Records Processed": 78, "Rule": "IBIB211212213", "File Name": "File_25-06-2022.xlsx", "Published Date": "25/06/2023", "Created Date": "25/06/2023"},
+        {"id": 72, "Action": "Edit", "Status": "Unpublished", "Product": "Product72", "Speciality": "Speciality72", "Blocked/Unblocked": "Blocked", "Records Processed": 79, "Rule": "IBIB214215216", "File Name": "File_26-06-2022.xlsx", "Published Date": "26/06/2023", "Created Date": "26/06/2023"},
+        {"id": 73, "Action": "Edit", "Status": "Published", "Product": "Product73", "Speciality": "Speciality73", "Blocked/Unblocked": "Unblocked", "Records Processed": 80, "Rule": "IBIB217218219", "File Name": "File_27-06-2022.xlsx", "Published Date": "27/06/2023", "Created Date": "27/06/2023"},
+        {"id": 74, "Action": "Edit", "Status": "Unpublished", "Product": "Product74", "Speciality": "Speciality74", "Blocked/Unblocked": "Blocked", "Records Processed": 81, "Rule": "IBIB220221222", "File Name": "File_28-06-2022.xlsx", "Published Date": "28/06/2023", "Created Date": "28/06/2023"},
+        {"id": 75, "Action": "Edit", "Status": "Published", "Product": "Product75", "Speciality": "Speciality75", "Blocked/Unblocked": "Unblocked", "Records Processed": 82, "Rule": "IBIB223224225", "File Name": "File_29-06-2022.xlsx", "Published Date": "29/06/2023", "Created Date": "29/06/2023"},
+        {"id": 76, "Action": "Edit", "Status": "Unpublished", "Product": "Product76", "Speciality": "Speciality76", "Blocked/Unblocked": "Blocked", "Records Processed": 83, "Rule": "IBIB226227228", "File Name": "File_30-06-2022.xlsx", "Published Date": "30/06/2023", "Created Date": "30/06/2023"},
+        {"id": 77, "Action": "Edit", "Status": "Published", "Product": "Product77", "Speciality": "Speciality77", "Blocked/Unblocked": "Unblocked", "Records Processed": 84, "Rule": "IBIB229230231", "File Name": "File_01-07-2022.xlsx", "Published Date": "01/07/2023", "Created Date": "01/07/2023"},
+        {"id": 78, "Action": "Edit", "Status": "Unpublished", "Product": "Product78", "Speciality": "Speciality78", "Blocked/Unblocked": "Blocked", "Records Processed": 85, "Rule": "IBIB232233234", "File Name": "File_02-07-2022.xlsx", "Published Date": "02/07/2023", "Created Date": "02/07/2023"},
+        {"id": 79, "Action": "Edit", "Status": "Published", "Product": "Product79", "Speciality": "Speciality79", "Blocked/Unblocked": "Unblocked", "Records Processed": 86, "Rule": "IBIB235236237", "File Name": "File_03-07-2022.xlsx", "Published Date": "03/07/2023", "Created Date": "03/07/2023"},
+        {"id": 80, "Action": "Edit", "Status": "Unpublished", "Product": "Product80", "Speciality": "Speciality80", "Blocked/Unblocked": "Blocked", "Records Processed": 87, "Rule": "IBIB238239240", "File Name": "File_04-07-2022.xlsx", "Published Date": "04/07/2023", "Created Date": "04/07/2023"},
+        {"id": 81, "Action": "Edit", "Status": "Published", "Product": "Product81", "Speciality": "Speciality81", "Blocked/Unblocked": "Unblocked", "Records Processed": 88, "Rule": "IBIB241242243", "File Name": "File_05-07-2022.xlsx", "Published Date": "05/07/2023", "Created Date": "05/07/2023"},
+        {"id": 82, "Action": "Edit", "Status": "Unpublished", "Product": "Product82", "Speciality": "Speciality82", "Blocked/Unblocked": "Blocked", "Records Processed": 89, "Rule": "IBIB244245246", "File Name": "File_06-07-2022.xlsx", "Published Date": "06/07/2023", "Created Date": "06/07/2023"},
+        {"id": 83, "Action": "Edit", "Status": "Published", "Product": "Product83", "Speciality": "Speciality83", "Blocked/Unblocked": "Unblocked", "Records Processed": 90, "Rule": "IBIB247248249", "File Name": "File_07-07-2022.xlsx", "Published Date": "07/07/2023", "Created Date": "07/07/2023"},
+        {"id": 84, "Action": "Edit", "Status": "Unpublished", "Product": "Product84", "Speciality": "Speciality84", "Blocked/Unblocked": "Blocked", "Records Processed": 91, "Rule": "IBIB250251252", "File Name": "File_08-07-2022.xlsx", "Published Date": "08/07/2023", "Created Date": "08/07/2023"},
+        {"id": 85, "Action": "Edit", "Status": "Published", "Product": "Product85", "Speciality": "Speciality85", "Blocked/Unblocked": "Unblocked", "Records Processed": 92, "Rule": "IBIB253254255", "File Name": "File_09-07-2022.xlsx", "Published Date": "09/07/2023", "Created Date": "09/07/2023"},
+        {"id": 86, "Action": "Edit", "Status": "Unpublished", "Product": "Product86", "Speciality": "Speciality86", "Blocked/Unblocked": "Blocked", "Records Processed": 93, "Rule": "IBIB256257258", "File Name": "File_10-07-2022.xlsx", "Published Date": "10/07/2023", "Created Date": "10/07/2023"},
+        {"id": 87, "Action": "Edit", "Status": "Published", "Product": "Product87", "Speciality": "Speciality87", "Blocked/Unblocked": "Unblocked", "Records Processed": 94, "Rule": "IBIB259260261", "File Name": "File_11-07-2022.xlsx", "Published Date": "11/07/2023", "Created Date": "11/07/2023"},
+        {"id": 88, "Action": "Edit", "Status": "Unpublished", "Product": "Product88", "Speciality": "Speciality88", "Blocked/Unblocked": "Blocked", "Records Processed": 95, "Rule": "IBIB262263264", "File Name": "File_12-07-2022.xlsx", "Published Date": "12/07/2023", "Created Date": "12/07/2023"},
+        {"id": 89, "Action": "Edit", "Status": "Published", "Product": "Product89", "Speciality": "Speciality89", "Blocked/Unblocked": "Unblocked", "Records Processed": 96, "Rule": "IBIB265266267", "File Name": "File_13-07-2022.xlsx", "Published Date": "13/07/2023", "Created Date": "13/07/2023"},
+        {"id": 90, "Action": "Edit", "Status": "Unpublished", "Product": "Product90", "Speciality": "Speciality90", "Blocked/Unblocked": "Blocked", "Records Processed": 97, "Rule": "IBIB268269270", "File Name": "File_14-07-2022.xlsx", "Published Date": "14/07/2023", "Created Date": "14/07/2023"},
+        {"id": 91, "Action": "Edit", "Status": "Published", "Product": "Product91", "Speciality": "Speciality91", "Blocked/Unblocked": "Unblocked", "Records Processed": 98, "Rule": "IBIB271272273", "File Name": "File_15-07-2022.xlsx", "Published Date": "15/07/2023", "Created Date": "15/07/2023"},
+        {"id": 92, "Action": "Edit", "Status": "Unpublished", "Product": "Product92", "Speciality": "Speciality92", "Blocked/Unblocked": "Blocked", "Records Processed": 99, "Rule": "IBIB274275276", "File Name": "File_16-07-2022.xlsx", "Published Date": "16/07/2023", "Created Date": "16/07/2023"},
+        {"id": 93, "Action": "Edit", "Status": "Published", "Product": "Product93", "Speciality": "Speciality93", "Blocked/Unblocked": "Unblocked", "Records Processed": 100, "Rule": "IBIB277278279", "File Name": "File_17-07-2022.xlsx", "Published Date": "17/07/2023", "Created Date": "17/07/2023"},
+        {"id": 94, "Action": "Edit", "Status": "Unpublished", "Product": "Product94", "Speciality": "Speciality94", "Blocked/Unblocked": "Blocked", "Records Processed": 101, "Rule": "IBIB280281282", "File Name": "File_18-07-2022.xlsx", "Published Date": "18/07/2023", "Created Date": "18/07/2023"},
+        {"id": 95, "Action": "Edit", "Status": "Published", "Product": "Product95", "Speciality": "Speciality95", "Blocked/Unblocked": "Unblocked", "Records Processed": 102, "Rule": "IBIB283284285", "File Name": "File_19-07-2022.xlsx", "Published Date": "19/07/2023", "Created Date": "19/07/2023"},
+        {"id": 96, "Action": "Edit", "Status": "Unpublished", "Product": "Product96", "Speciality": "Speciality96", "Blocked/Unblocked": "Blocked", "Records Processed": 103, "Rule": "IBIB286287288", "File Name": "File_20-07-2022.xlsx", "Published Date": "20/07/2023", "Created Date": "20/07/2023"},
+        {"id": 97, "Action": "Edit", "Status": "Published", "Product": "Product97", "Speciality": "Speciality97", "Blocked/Unblocked": "Unblocked", "Records Processed": 104, "Rule": "IBIB289290291", "File Name": "File_21-07-2022.xlsx", "Published Date": "21/07/2023", "Created Date": "21/07/2023"},
+        {"id": 98, "Action": "Edit", "Status": "Unpublished", "Product": "Product98", "Speciality": "Speciality98", "Blocked/Unblocked": "Blocked", "Records Processed": 105, "Rule": "IBIB292293294", "File Name": "File_22-07-2022.xlsx", "Published Date": "22/07/2023", "Created Date": "22/07/2023"},
+        {"id": 99, "Action": "Edit", "Status": "Published", "Product": "Product99", "Speciality": "Speciality99", "Blocked/Unblocked": "Unblocked", "Records Processed": 106, "Rule": "IBIB295296297", "File Name": "File_23-07-2022.xlsx", "Published Date": "23/07/2023", "Created Date": "23/07/2023"},
+        {"id": 100, "Action": "Edit", "Status": "Unpublished", "Product": "Product100", "Speciality": "Speciality100", "Blocked/Unblocked": "Blocked", "Records Processed": 107, "Rule": "IBIB298299300", "File Name": "File_24-07-2022.xlsx", "Published Date": "24/07/2023", "Created Date": "24/07/2023"},
+        {"id": 101, "Action": "Edit", "Status": "Published", "Product": "Product101", "Speciality": "Speciality101", "Blocked/Unblocked": "Unblocked", "Records Processed": 108, "Rule": "IBIB301302303", "File Name": "File_25-07-2022.xlsx", "Published Date": "25/07/2023", "Created Date": "25/07/2023"},
+        {"id": 102, "Action": "Edit", "Status": "Unpublished", "Product": "Product102", "Speciality": "Speciality102", "Blocked/Unblocked": "Blocked", "Records Processed": 109, "Rule": "IBIB304305306", "File Name": "File_26-07-2022.xlsx", "Published Date": "26/07/2023", "Created Date": "26/07/2023"},
+        {"id": 103, "Action": "Edit", "Status": "Published", "Product": "Product103", "Speciality": "Speciality103", "Blocked/Unblocked": "Unblocked", "Records Processed": 110, "Rule": "IBIB307308309", "File Name": "File_27-07-2022.xlsx", "Published Date": "27/07/2023", "Created Date": "27/07/2023"},
+        {"id": 104, "Action": "Edit", "Status": "Unpublished", "Product": "Product104", "Speciality": "Speciality104", "Blocked/Unblocked": "Blocked", "Records Processed": 111, "Rule": "IBIB310311312", "File Name": "File_28-07-2022.xlsx", "Published Date": "28/07/2023", "Created Date": "28/07/2023"},
+        {"id": 105, "Action": "Edit", "Status": "Published", "Product": "Product105", "Speciality": "Speciality105", "Blocked/Unblocked": "Unblocked", "Records Processed": 112, "Rule": "IBIB313314315", "File Name": "File_29-07-2022.xlsx", "Published Date": "29/07/2023", "Created Date": "29/07/2023"}
+    ]
+}
+
+----------------------------------------
+ screen 1
+import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+export default function Screen1() {
+    const [products, setProducts] = useState([]);
+    const [speciality, setSpeciality] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const containerRef = useRef(null);
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const response1 = await axios.get('http://localhost:8181/products?_limit=12');
+            const response2 = await axios.get('http://localhost:8181/speciality?_limit=7');
+            setProducts(response1.data);
+            setSpeciality(response2.data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+        setIsLoading(false);
+    };
+
+    const fetchMoreProducts = async () => {
+        setIsLoading(true);
+        setTimeout(async()=>{
+            try {
+                // Fetch more products based on x-scroll
+                const response = await axios.get(`http://localhost:8181/products?_start=${products.length}&_limit=2`);
+                setProducts((prevProducts) => [...prevProducts, ...response.data]);
+                console.log('products', products.length)
+            } catch (error) {
+                console.error('Error fetching more products:', error);
+            }
+            setIsLoading(false);
+        },1000);
+        
+    };
+
+    const fetchMoreSpecialities = async () => {
+        setIsLoading(true);
+        setTimeout(async()=>{
+            try {
+                // Fetch more specialities based on y-scroll
+                const response = await axios.get(
+                    `http://localhost:8181/speciality?_start=${speciality.length}&_limit=2`
+                );
+                setSpeciality((prevSpeciality) => [...prevSpeciality, ...response.data]);
+                console.log('speciality', speciality.length)
+            } catch (error) {
+                console.error('Error fetching more specialities:', error);
+            }
+        },1000);
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const handleScroll = () => {
+        const container = containerRef.current;
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight-2) {
+            // Fetch more specialities on y-scroll
+            fetchMoreSpecialities();
+        } else if (container.scrollLeft + container.clientWidth >= container.scrollWidth-2) {
+            // Fetch more products on x-scroll
+            fetchMoreProducts();
+        }
+    };
+
+    return ( 
+        <div className='m-2 overflow-auto max-h-[600px] max-w-[100%] border-2 border-black' ref={containerRef} onScroll={handleScroll} >
+           {isLoading && <div className='text-end'>Loading...</div>}
+            <div className='flex flex-row h-42'>
+                <div className='bg-gray-300 min-w-44 m-1 border-2 border-gray-500'>
+                    <div className='mr-2 pl-24 text-lg font-medium'>Products</div>
+                    <div className='ml-2 pt-10 text-lg text-left font-medium'>Speciality</div>
+                </div>
+                {products.map((ele, index) =>
+                    <div key={index} className=' bg-gray-300 min-w-16 m-1 pt-10 border-2 border-gray-500 '>
+                        <p className='justify-between -rotate-90'>{ele.name}</p>
+                    </div>
+                )}
+            </div>
+            <div>
+                {speciality.map((ele, rowIndex) => (
+                    <div key={rowIndex} className="flex flex-row items-center">
+                        <div className="min-w-44 h-16 m-1 bg-gray-300 pt-5 border-2 border-gray-500">{ele.name}</div>
+                        {products.map((product, colIndex) => (
+                            <div
+                                key={colIndex}
+                                className={`min-w-16 h-16 mr-1 ml-1 ${ele.productsId.toString().includes(product.id) ? 'bg-orange-300' : 'bg-slate-300'}`}
+                            ></div>
+                        ))}
+                    </div>
+                ))}
+            </div>
+             {isLoading && <div className='text-center'>Loading...</div>}
+        </div>
+    );
+}
+
+-------------------------------------
+//ganya
+
+// import {useState ,useEffect} from 'react'
+// import axios from 'axios';
+
+// function Screen() {
+//   const [products, setProducts] = useState([]);
+//   const [speciality, setSpeciality] = useState([]);
+
+//   useEffect(() => {
+//     const fetchData = async () => {
+//       try {
+//         const response1 = await axios.get('http://localhost:8181/products');
+//         const response2 = await axios.get('http://localhost:8181/speciality');
+//         setProducts(response1.data);
+//         console.log(response1.data);
+//         setSpeciality(response2.data);
+//       } catch (error) {
+//         console.error('Error fetching data:', error);
+//       }
+//     };
+
+//     fetchData();
+//   }, []);
+
+//     return (
+//         <div className='overflow-x-scroll'>
+//         <div className='flex flex-row h-42 '>
+//             <div className='bg-gray-300 min-w-44 m-1 border-2 border-gray-500'>
+//                 <div className='mr-2 pl-24 text-lg font-medium'>Products</div>
+//                 <div className='ml-2 pt-10 text-lg text-left font-medium'>Speciality</div>
+//             </div>
+//             {products.map((ele,index)=>
+//                             <div key={index} className=' bg-gray-300 min-w-16 m-1 pt-10 border-2 border-gray-500 '>
+//                                 <p className='justify-between -rotate-90'>{ele.name}</p>
+//                             </div>
+//             )}
+//         </div>
+//         <div>
+//             {speciality.map((ele, rowIndex) => (
+//                 <div key={rowIndex} className="flex flex-row items-center">
+//                     <div className="min-w-44 h-16 m-1 bg-gray-300 pt-5 border-2 border-gray-500">{ele.name}</div>
+//                     {products.map((product, colIndex) => (
+//                         <div
+//                         key={colIndex}
+//                         className={`min-w-16 h-16 mr-1 ml-1 ${ele.productsId.toString().includes(product.id)?'bg-orange-300':'bg-slate-300'}`}
+//                         ></div>
+//                     ))}
+//                 </div>
+//             ))}
+//         </div>
+//     </div>
+
+//     );
+// }
+
+// export default Screen;
+
+--------------------------
+//both - axis scroll
+// import { useState, useEffect, useRef } from 'react';
+// import axios from 'axios';
+
+// function Screen() {
+//   const [products, setProducts] = useState([]);
+//   const [speciality, setSpeciality] = useState([]);
+//   const [isLoading, setIsLoading] = useState(false);
+//   const containerRef = useRef(null);
+
+//   const fetchData = async () => {
+//     setIsLoading(true);
+//     try {
+//       const response1 = await axios.get('http://localhost:8181/products?_limit=10');
+//       const response2 = await axios.get('http://localhost:8181/speciality?_limit=6');
+//       setProducts(response1.data);
+//       setSpeciality(response2.data);
+//     } catch (error) {
+//       console.error('Error fetching data:', error);
+//     }
+//     setIsLoading(false);
+//   };
+
+//   const fetchMoreData = async () => {
+//     setIsLoading(true);
+//     console.log('Fetching some data',products.length)
+//     try {
+//       // Fetch more products based on x-scroll
+//       const response = await axios.get(`http://localhost:8181/products?_start=${products.length}&_limit=2`);
+//       setProducts((prevProducts) => [...prevProducts, ...response.data]);
+//     } catch (error) {
+//       console.error('Error fetching more products:', error);
+//     }
+
+//     try {
+//       // Fetch more specialities based on y-scroll
+//       const response = await axios.get(
+//         `http://localhost:8181/speciality?_start=${speciality.length}&_limit=2`
+//       );
+//       setSpeciality((prevSpeciality) => [...prevSpeciality, ...response.data]);
+//     } catch (error) {
+//       console.error('Error fetching more specialities:', error);
+//     }
+//     setIsLoading(false);
+//   };
+
+//   useEffect(() => {
+//     fetchData();
+//   }, []);
+
+//   const handleScroll = () => {
+//     const container = containerRef.current;
+//     if (
+//       container.scrollTop + container.clientHeight >= container.scrollHeight ||
+//       container.scrollLeft + container.clientWidth >= container.scrollWidth
+//     ) {
+//       fetchMoreData();
+//     }
+//   };
+
+//   return (
+//     <div className='overflow-auto'
+//       ref={containerRef}
+//       onScroll={handleScroll}
+      
+//     >
+//       <div className='flex flex-row h-42'>
+//         {/* Products */}
+//         <div className='bg-gray-300 min-w-44 m-1 border-2 border-gray-500'>
+//           <div className='mr-2 pl-24 text-lg font-medium'>Products</div>
+//           <div className='ml-2 pt-10 text-lg text-left font-medium'>Speciality</div>
+//         </div>
+//         {products.map((ele, index) => (
+//           <div key={index} className='bg-gray-300 min-w-16 m-1 pt-10 border-2 border-gray-500'>
+//             <p className='justify-between -rotate-90'>{ele.name}</p>
+//           </div>
+//         ))}
+//       </div>
+//       {/* Speciality */}
+//       {speciality.map((ele, rowIndex) => (
+//         <div key={rowIndex} className='flex flex-row items-center'>
+//           <div className='min-w-44 h-16 m-1 bg-gray-300 pt-5 border-2 border-gray-500'>{ele.name}</div>
+//           {products.map((product, colIndex) => (
+//             <div
+//               key={colIndex}
+//               className={`min-w-16 h-16 mr-1 ml-1 ${
+//                 ele.productsId.toString().includes(product.id) ? 'bg-orange-300' : 'bg-slate-300'
+//               }`}
+//             ></div>
+//           ))}
+//         </div>
+//       ))}
+//       {isLoading && <div className='text-center'>Loading...</div>}
+//     </div>
+//   );
+// }
+// export default Screen;
+------------------------------
+//intersection observer 
+
+// import { useState, useEffect, useRef } from 'react';
+// import axios from 'axios';
+
+// function Screen() {
+//   const [products, setProducts] = useState([]);
+//   const [speciality, setSpeciality] = useState([]);
+//   const containerRef = useRef(null);
+
+//   const fetchData = async () => {
+//     try {
+//       const response1 = await axios.get('http://localhost:8181/products');
+//       const response2 = await axios.get('http://localhost:8181/speciality');
+//       setProducts((prevProducts) => [...prevProducts, ...response1.data]);
+//       setSpeciality((prevSpeciality) => [...prevSpeciality, ...response2.data]);
+//     } catch (error) {
+//       console.error('Error fetching data:', error);
+//     }
+//   };
+
+//   const observer = useRef(
+//     new IntersectionObserver(
+//       (entries) => {
+//         const firstEntry = entries[0];
+//         if (firstEntry.isIntersecting) {
+//           fetchData();
+//         }
+//       },
+//       { threshold: 0.5 }
+//     )
+//   );
+
+//   useEffect(() => {
+//     observer.current.observe(containerRef.current);
+//     return () => {
+//       observer.current.disconnect();
+//     };
+//   }, []);
+
+//   return (
+//     <div className='overflow-x-scroll overflow-y-scroll' ref={containerRef}>
+//       <div className='flex flex-row h-42 '>
+//         {/* Products */}
+//         <div className='bg-gray-300 min-w-44 m-1 border-2 border-gray-500'>
+//           <div className='mr-2 pl-24 text-lg font-medium'>Products</div>
+//           <div className='ml-2 pt-10 text-lg text-left font-medium'>Speciality</div>
+//         </div>
+//         {products.map((ele, index) => (
+//           <div key={index} className='bg-gray-300 min-w-16 m-1 pt-10 border-2 border-gray-500'>
+//             <p className='justify-between -rotate-90'>{ele.name}</p>
+//           </div>
+//         ))}
+//       </div>
+//       {/* Speciality */}
+//       {speciality.map((ele, rowIndex) => (
+//         <div key={rowIndex} className='flex flex-row items-center'>
+//           <div className='min-w-44 h-16 m-1 bg-gray-300 pt-5 border-2 border-gray-500'>{ele.name}</div>
+//           {products.map((product, colIndex) => (
+//             <div
+//               key={colIndex}
+//               className={`min-w-16 h-16 mr-1 ml-1 ${
+//                 ele.productsId.toString().includes(product.id) ? 'bg-orange-300' : 'bg-slate-300'
+//               }`}
+//             ></div>
+//           ))}
+//         </div>
+//       ))}
+//     </div>  
+//   );
+// }
+
+// export default Screen;
+
+----------------------------
+import { products, speciality } from '../../db/db.json';
+
+function Screen() {
+    return (
+        <div className="flex ">
+            <div className="flex flex-col">
+                <div className="flex h-50  items-center">  
+                <div className='mx-1 w-50 bg-gray-400'>                
+                    <div className="text-white">Speciality</div>
+                    <div className="text-white">Products</div>
+                </div>  
+                        {products.map((item) => (
+                            <div key={item.id} className="bg-green-50 m-1">
+                                <p className='-rotate-90'>{item.name}</p>
+                            </div>
+                        ))}
+                </div>
+            
+                {speciality.map((item, index) => (
+                    <div key={index} >
+                        <div key={item.id} className="bg-gray-200 my-2 p-2 flex">
+                        <div className='min-w-50 bg-gray-30 text-black'>
+                            {item.name}
+                        </div>
+                            {products.map((productItem) => (
+                                <div
+                                    key={productItem.id}
+                                    className={`mx-7 h-fit w-fit p-2 ${item.productsId.includes(productItem.id) ? 'bg-red-700' : 'bg-gray-50'}`}
+                                >{productItem.id}
+                                </div>
+                            ))}
+                        </div>
+
+                    </div>
+                ))}
+            </div>
+        </div>
+
+    );
+}
+
+export default Screen;
+```````````````````````````````````````````````````
+import { products, speciality } from '../../db/db.json';
+
+function Screen() {
+    return (
+        <div className="flex bg-yellow-100">
+            <div className="h-20 w-60 bg-slate-400">
+                <div className="flex flex-col justify-center items-center h-full w-full bg-red-600">
+                    <div className="text-white">Speciality</div>
+                    <div className="text-white">Products</div>
+                </div>
+                <div className="flex flex-col">
+                    {speciality.map((item, index) => (
+                        <div key={index} className='flex'>
+                            <div key={item.id} className="bg-gray-200 my-2 p-2">
+                                {item.name}
+                            </div>
+                            {products.map((productItem) => (
+                                <div
+                                    key={productItem.id}
+                                    className={`m-2 p-2 ${item.productsId.includes(productItem.id) ? 'bg-red-700' : 'bg-gray-50'}`}
+                                >
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="flex flex-row">
+                {products.map((item) => (
+                    <div key={item.id} className="bg-green-50 my-2 p-2 rotate -rotate-90">
+                        {item.name}
+                    </div>
+                ))}
+            </div>
+        </div>
+
+    );
+}
+
+export default Screen;
+
+``````````````````````````````````
+
+import { products, speciality } from '../../db/db.json';
+
+function Screen() {
+    return (
+        <div className="flex bg-yellow-100">
+            <div className="flex flex-col">
+                <div className="flex h-20 justify-center items-center bg-red-600">                    
+                    <div className="text-white">Speciality</div>
+                    <div className="text-white">Products</div>
+                        {products.map((item) => (
+                            <div key={item.id} className="bg-green-50 h-fit w-fit my-2 p-2 rotate -rotate-90">
+                                {item.name}
+                            </div>
+                        ))}
+                    </div>
+            
+                {speciality.map((item, index) => (
+                    <div key={index} >
+                        <div key={item.id} className="bg-gray-200 my-2 p-2 flex">
+                            {item.name}
+                            {products.map((productItem) => (
+                                <div
+                                    key={productItem.id}
+                                    className={`mx-9 p-2 ${item.productsId.includes(productItem.id) ? 'bg-red-700' : 'bg-gray-50'}`}
+                                >
+                                </div>
+                            ))}
+                        </div>
+
+                    </div>
+                ))}
+            </div>
+        </div>
+
+    );
+}
+
+export default Screen;

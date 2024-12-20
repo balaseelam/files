@@ -1,0 +1,39 @@
+CTC (current and expectations): 5.13LPA(Current) and 10LPA(Expected)
+
+No. of offers in Pipeline: 0
+
+No. of Interview in Pipeline: 0
+
+When did the last Salary appraisal/hike took place: November, 2023
+
+Describe your enterprise experience (Enterprise – size of the organization)- Virtusa Consulting Services is a global provider of digital business strategy, digital engineering, and IT services, employing over 25,000 professionals worldwide. With a strong presence in North America, Europe, Asia, and Australia, Virtusa serves numerous Fortune 500 companies across various industries including banking, healthcare, and telecommunications. The company excels in delivering innovative solutions through its expertise in cloud, data, automation, and cybersecurity. Known for its strategic partnerships with major technology providers like AWS and Microsoft, Virtusa is recognized for its impact on digital transformation and enterprise IT modernization.
+
+Current Mode of employment (perm or contract)- permanent 
+
+Official Notice Period mentioned in the Offer Letter - 2 months (Negotiable)
+
+Talk about client, JD and requirement (Discuss Value proposition as well)- N/A
+
+Current Technology Stack: Java, Spring Boot, Spring Security, Jdbc, Hibernate, Microservices, Kafka, Junit, Mockito, MySQL, JavaScript, ReactJs, Docker, Jenkins, Git.   
+
+Expected Technology Stack: Java, Spring Boot, Jdbc, Hibernate, Microservices, DSA, Kafka, Junit, Mockito, MySQL, Docker, Jenkins.
+
+Which is the best project you have worked on and why does it rank as the best? The best project I have worked on is the Trades Business Operations Project. This real-time project provided me with invaluable experience in addressing and implementing solutions to real-world problems in the financial technology domain. Our project was designed as a loosely coupled system, which enhanced its scalability and flexibility. This architectural choice allowed for efficient integration and adaptability, making it a standout project. The exposure to real-time scenarios and the opportunity to develop code that directly impacts business operations significantly contributed to my growth as a developer, and this is why I consider it the best project I have worked on.
+
+Are you from a development or a support/enhancement background? Developement Background
+
+What projects has the candidate worked in- 1. Trades Business Operation(FinTech Project) 2. Electronic Health Record Management (HealthCare)
+
+What is the current phase of the project are you working in? - The Trades Business Operations Project has been successfully completed, and I was recently released from it.
+
+Which stage of the project did you join in? Is it a project driven, or a task driven project?I joined the Trades Business Operations Project during the development phase. It was a project-driven initiative, focused on addressing real-time financial technology scenarios and implementing solutions to enhance business operations.
+
+What is the scope of the project? (Domain)-  It is FinTech Project. scope of the project is help business operation team(stakeholders) to manage the traders portfolio covering equity asset class.
+
+What is the team size? 5
+
+What are the deliverables assigned to you?The deliverables assigned to me included overseeing the enrichment of executions and generating positions to manage the trader's portfolio, specifically within the Equity asset class. This involved developing an application system to assist the business operations team (stakeholders) in efficiently managing the trader’s portfolio, which was crucial to our financial technology campaign.
+
+What is your contribution/achievements/won any appreciations to the project? I played a key role in developing the application system that enabled stakeholders to manage portfolios efficiently. Due to my significant contributions and dedication, I was awarded as the top performer on the project, earning appreciation from both the team and stakeholders for my efforts and the quality of my work.
+
+Career Aspirations-With 2 years of experience in IT development, my career aspiration is to continue advancing my skills in software development and take on more complex and challenging projects. I aim to specialize in Java Backend Developer, contributing to innovative solutions that drive business success. Additionally, I aspire to assume leadership roles, mentoring junior developers and collaborating with cross-functional teams to deliver high-quality software products. Long-term, I see myself growing into a senior developer or technical lead role, where I can leverage my expertise to influence project outcomes and drive technological advancements within the organization.
